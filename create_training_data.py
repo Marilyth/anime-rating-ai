@@ -69,4 +69,4 @@ def write_data(file_name: str, types: list[str], max_pages: int = -1):
 
 
 if __name__ == "__main__":
-    write_data("anime_data.csv", ["tv", "ona", "movie"], 20)
+    write_data("anime_data.csv", ["tv", "ona", "movie"], -1)

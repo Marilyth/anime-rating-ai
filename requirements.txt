@@ -1,13 +1,7 @@
-torch
-pytorch-nlp
-pytorch-pretrained-bert
 pandas
 numpy
 keras
-tensorflow
 sklearn
 transformers
-onnxruntime
-onnxruntime-tools
-onnx
-onnxruntime-gpu
+tensorflow
+matplotlib

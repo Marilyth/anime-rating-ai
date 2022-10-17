@@ -1,7 +1,6 @@
 from transformers.models.bert.modeling_bert import BertPreTrainedModel, BertModel
 import torch
 from typing import Optional
-from bert_processing import MAX_LEN
 
 class CustomBert(BertPreTrainedModel):
     """
@@ -31,12 +30,12 @@ class CustomBert(BertPreTrainedModel):
         output_hidden_states: Optional[bool] = None):
         
         # Cut away our custom features.
-        bert_input = input_ids[:, :-self.num_custom_features]
+        bert_input = input_ids[:, :-self.num_custom_features] if self.num_custom_features > 0 else input_ids
         output = self.bert.forward(bert_input, attention_mask, token_type_ids, position_ids, head_mask, inputs_embeds, labels, output_attentions, output_hidden_states, False)
         pooled_output = output[1]
 
         # Append custom features to BERT output, and feed into prediction layer.
-        predictor_input = torch.cat((pooled_output, input_ids[:, -self.num_custom_features:]), dim=1)
+        predictor_input = torch.cat((pooled_output, input_ids[:, -self.num_custom_features:]), dim=1) if self.num_custom_features > 0 else pooled_output
         pred_out = self.predictor(predictor_input)
 
         if labels is not None:

@@ -1,11 +1,5 @@
-from typing import Counter, List
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas
-from pandas import DataFrame
-import random
-import os
-import csv
 
 random_seed = 1
 

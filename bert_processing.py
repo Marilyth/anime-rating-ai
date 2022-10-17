@@ -1,7 +1,5 @@
 from transformers.models.bert.tokenization_bert import BertTokenizer
 from keras.utils import pad_sequences
-import re
-import numpy as np
 from typing import List
 
 # On Windows, execute in elevated powershell:

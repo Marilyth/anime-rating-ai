@@ -5,9 +5,8 @@ import torch
 import numpy as np
 from custom_bert import CustomBert
 from torch.optim.adamw import AdamW
-from pytorch_transformers.optimization import WarmupLinearSchedule
+from transformers.optimization import get_linear_schedule_with_warmup
 import os
-import onnxruntime 
 from tqdm import tqdm
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from pathlib import Path
@@ -30,7 +29,7 @@ class BertTrainer():
         self._processed_data = None
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model_dir = "models"
-        self.model_file = f"torch.onnx"
+        self.model_file = f"anime.pkl"
 
     def load_corpus(self):
         """Loads and encodes the corpus for the current parent_node.
@@ -40,7 +39,7 @@ class BertTrainer():
         """
         # Undersample classes to be less imbalanced. Oversampling is difficult with text.
         self._raw_data = load_data().to_numpy()
-        self._labels = [code for code in self._raw_data[:,2]]
+        self._labels = [code for code in self._raw_data[:,-1]]
         self._texts = self._raw_data[:,0]
         self._tokenize_texts()
     
@@ -50,9 +49,9 @@ class BertTrainer():
     def _setup_split(self, test_size):
         ids = self._tokenized_data["ids"]
         # Append additional feature columns to ids.
-        inputs: np.ndarray = np.c_[ids, self._raw_data[:, 1], self._raw_data[:, 3] * 0].astype(np.int32)
-
+        inputs: np.ndarray = np.c_[ids, self._raw_data[:, 1], self._raw_data[:, 2] * 0].astype(np.int32)
         masks = self._tokenized_data["attention_masks"]
+        
         train_inputs, validation_inputs, train_labels, validation_labels = train_test_split(inputs, self._labels, random_state=random_seed, test_size=test_size)
         train_masks, validation_masks, _, _ = train_test_split(masks, ids, random_state=random_seed, test_size=test_size)
 
@@ -99,7 +98,7 @@ class BertTrainer():
         
         total_steps = len(self.train_dataloader) * epochs
         optimizer = AdamW(model.parameters(), lr=2e-5, eps=1e-4) # epsilon default 1e-8 is rounded to 0 for half dtype.
-        scheduler = WarmupLinearSchedule(optimizer, warmup_steps=0, t_total=total_steps)  # PyTorch scheduler
+        scheduler = get_linear_schedule_with_warmup(optimizer, 0, total_steps)  # PyTorch scheduler
 
         train_loss_set = []
         past_loss = 0
@@ -144,35 +143,29 @@ class BertTrainer():
             
             self.model.eval()
             loss = self.validate_model()
-            print(f"{loss} ({loss - past_loss} increase)")
+            print(f"Mean Squared Error: {loss} ({loss - past_loss} difference)")
             past_loss = loss
 
-    def save_model_onnx(self):
+    def save_model(self):
         self.model.eval()
         self.model.float()
         example_loader = DataLoader(self.train_data, sampler=self.train_sampler, batch_size=8)
         example_input, example_mask, example_label = tuple(t.to(self.device) for t in next(iter(example_loader)))
 
         Path(self.model_dir).mkdir(parents=True, exist_ok=True)
-        torch.onnx.export(self.model, (example_input, example_mask), os.path.join(self.model_dir, self.model_file), opset_version=12, input_names=['input_ids', 'input_mask'],
-                          output_names=['output'], dynamic_axes={
-                                                                    'input_ids': {0: 'batch_size'},
-                                                                    'input_mask': {0: 'batch_size'},
-                                                                    'output': {0: 'batch_size'},
-                                                                })
+        torch.save(self.model, os.path.join(self.model_dir, self.model_file))
 
         del example_input, example_mask, example_label, example_loader
 
         # Done, but assert the models are equal.
         acc_before = self.validate_model()
-        self.load_model_onnx()
+        self.load_model()
         acc_after = self.validate_model()
 
         assert abs(acc_before - acc_after) <= 0.01
 
-    def load_model_onnx(self):
-        # Load onnx model in GPU if available, else CPU.
-        session = onnxruntime.InferenceSession(os.path.join(self.model_dir, self.model_file), providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+    def load_model(self):
+        session = torch.load(os.path.join(self.model_dir, self.model_file))
         self.model = session
 
     def validate_model(self):
@@ -181,7 +174,6 @@ class BertTrainer():
         Returns:
             float: The accuracy.
         """
-        # Function to calculate the accuracy of our predictions vs labels.
         values = []
         labels = []
 
@@ -196,12 +188,9 @@ class BertTrainer():
             # Telling the model not to compute or store gradients, saving memory and speeding up validation
             with torch.no_grad():
                 # Forward pass, calculate predictions.
-                if isinstance(self.model, onnxruntime.InferenceSession):
-                    values.append(torch.tensor(self.model.run(output_names=None, input_feed={"input_ids": b_input_ids.detach().cpu().numpy(), "input_mask": b_input_mask.detach().cpu().numpy()})[0]))
-                else:
-                    value = self.model(*(b_input_ids, b_input_mask))
-                    # Move predictions and labels to CPU.
-                    values.append(value.detach().cpu())
+                value = self.model(*(b_input_ids, b_input_mask))
+                # Move predictions and labels to CPU.
+                values.append(value.detach().cpu())
             labels.append(b_labels.to('cpu'))
         
         mean_squared_loss = 0
