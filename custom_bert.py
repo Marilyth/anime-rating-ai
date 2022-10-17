@@ -29,17 +29,21 @@ class CustomBert(BertPreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None):
         
-        # Cut away our custom features.
-        bert_input = input_ids[:, :-self.num_custom_features] if self.num_custom_features > 0 else input_ids
-        output = self.bert.forward(bert_input, attention_mask, token_type_ids, position_ids, head_mask, inputs_embeds, labels, output_attentions, output_hidden_states, False)
-        pooled_output = output[1]
+        if self.config.problem_type == "regression":
+            # Cut away our custom features.
+            bert_input = input_ids[:, :-self.num_custom_features] if self.num_custom_features > 0 else input_ids
+            output = self.bert.forward(bert_input, attention_mask, token_type_ids, position_ids, head_mask, inputs_embeds, labels, output_attentions, output_hidden_states, False)
+            pooled_output = output[1]
 
-        # Append custom features to BERT output, and feed into prediction layer.
-        predictor_input = torch.cat((pooled_output, input_ids[:, -self.num_custom_features:]), dim=1) if self.num_custom_features > 0 else pooled_output
-        pred_out = self.predictor(predictor_input)
+            # Append custom features to BERT output, and feed into prediction layer.
+            predictor_input = torch.cat((pooled_output, input_ids[:, -self.num_custom_features:]), dim=1) if self.num_custom_features > 0 else pooled_output
+            pred_out = self.predictor(predictor_input)
 
-        if labels is not None:
-            loss_function = torch.nn.MSELoss()
-            return loss_function(pred_out.squeeze(), labels.squeeze()), pred_out
+            if labels is not None:
+                loss_function = torch.nn.MSELoss()
+                return loss_function(pred_out.squeeze(), labels.squeeze()), pred_out
+            else:
+                return pred_out
         else:
-            return pred_out
+            # TODO: classification
+            return None

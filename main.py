@@ -1,4 +1,5 @@
 # For GPU, install CUDA toolkit version used by tensorflow (v11.2 atm): https://developer.nvidia.com/cuda-toolkit-archive
+# Optimally install CUDA before requirements.txt for GPU support.
 import os
 os.add_dll_directory("C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v11.2/bin")
 

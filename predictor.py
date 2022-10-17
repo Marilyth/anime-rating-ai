@@ -4,7 +4,7 @@ import numpy as np
 import torch
 
 class BertPredictor():
-    """A training pipeline for a SoftBert neural network.
+    """A training pipeline for a CustomBert neural network.
     """
     def __init__(self):
         self.model_dir = "models"
@@ -17,6 +17,8 @@ class BertPredictor():
         self.model.cpu()
 
     def get_score(self, title, genre):
+        """Returns the rating the Neural Network would give the title.
+        """
         title_length = len(title)
         tokenized_data = bert_processing.encode(bert_processing.tokenize([title]))
 

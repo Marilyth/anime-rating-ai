@@ -12,14 +12,10 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 from pathlib import Path
 
 class BertTrainer():
-    """A training pipeline for a SoftBert neural network.
+    """A training pipeline for a CustomBert neural network.
     """
     def __init__(self):
         """Initializes the BertTrainer.
-
-        Args:
-            data_directory (str, optional): The location of the grouped fda data. Defaults to "./Downloads/HierarchicalData".
-            parent_node (str, optional): The node for which to learn to classify the children for. Defaults to "A".
         """
         self._raw_data = None
         self._labels = None
@@ -32,12 +28,8 @@ class BertTrainer():
         self.model_file = f"anime.pkl"
 
     def load_corpus(self):
-        """Loads and encodes the corpus for the current parent_node.
-
-        Args:
-            max_samples_per_class (int): Downsamples each class to have a maximum of this amount of datapoints.
+        """Loads and encodes the anime data.
         """
-        # Undersample classes to be less imbalanced. Oversampling is difficult with text.
         self._raw_data = load_data().to_numpy()
         self._labels = [code for code in self._raw_data[:,-1]]
         self._texts = self._raw_data[:,0]
@@ -47,7 +39,10 @@ class BertTrainer():
         self._tokenized_data = bert_processing.encode(bert_processing.tokenize(self._texts))
 
     def _setup_split(self, test_size):
+        """Sets up the train/validation splits and their corresponding dataloaders.
+        """
         ids = self._tokenized_data["ids"]
+
         # Append additional feature columns to ids.
         inputs: np.ndarray = np.c_[ids, self._raw_data[:, 1], self._raw_data[:, 2] * 0].astype(np.int32)
         masks = self._tokenized_data["attention_masks"]
@@ -169,10 +164,7 @@ class BertTrainer():
         self.model = session
 
     def validate_model(self):
-        """Returns the accuracy of self.model against the current validation dataset.
-
-        Returns:
-            float: The accuracy.
+        """Returns the Mean Squared Error of self.model against the current validation dataset.
         """
         values = []
         labels = []

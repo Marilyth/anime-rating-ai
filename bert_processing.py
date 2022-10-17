@@ -15,7 +15,6 @@ def tokenize(corpus: List[str]):
 
     Args:
         corpus (List[str]): The list of strings to be converted.
-        analyze_percentile (bool, optional): Whether to display the wordpiece length percentiles. Defaults to False.
 
     Returns:
         List[List[str]]: A list of list of strings, containing the BERT tokens for each text in the corpus.
