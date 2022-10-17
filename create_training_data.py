@@ -47,7 +47,7 @@ def get_data(type_name: str, genre_flags: dict[int,int], max_pages: int = -1) ->
             for genre in entry["genres"]:
                 genres += genre_flags[genre["mal_id"]]
             
-            entries.append([title, title_length, score, genres])
+            entries.append([title, title_length, genres, score])
         
         sleep(1)
     
@@ -61,7 +61,8 @@ def write_data(file_name: str, types: list[str], max_pages: int = -1):
     with open(file_name, "w+", newline="", encoding="utf-8") as file:
         writer = csv.writer(file,delimiter=",",escapechar="\\")
         genre_flags = create_genre_flags()
-        
+        writer.writerow(["Title", "TitleLength", "Genres", "Score"])
+
         for type_name in types:
             entries = get_data(type_name, genre_flags, max_pages)
             writer.writerows(entries)
